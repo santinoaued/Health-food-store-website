@@ -1,0 +1,295 @@
+---
+import { href } from "@/lib/url";
+import { Picture } from "astro:assets";
+import almendras from "@/assets/products/almendras.jpg";
+import avena from "@/assets/products/avena.jpg";
+import cacao from "@/assets/products/cacao.jpg";
+import JsonLd from "@/components/JsonLd.astro";
+import ProductCard from "@/components/ProductCard.astro";
+import ProductImage from "@/components/ProductImage.astro";
+import { site } from "@/config/site";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { categoryUrl, getCategories, getProducts } from "@/lib/catalog";
+
+const products = await getProducts();
+const categories = getCategories(products);
+const business = {
+  "@context": "https://schema.org",
+  "@graph": site.branches.map((branch) => ({
+    "@type": "LocalBusiness",
+    "@id": new URL(href(`/#${branch.id}`), Astro.site).href,
+    name: `${site.legalName}, ${branch.name}`,
+    description: site.description,
+    url: new URL(href("/"), Astro.site).href,
+    image: new URL(href("/og.jpg"), Astro.site).href,
+    telephone: `+${branch.whatsapp}`,
+    email: site.email,
+    address: { "@type": "PostalAddress", streetAddress: branch.address, addressLocality: branch.city, addressCountry: "AR" },
+    sameAs: Object.values(site.social),
+  })),
+};
+const featured = products.filter((product) => product.available && product.image).slice(0, 8);
+
+const steps = [
+  { title: "Elegí tus productos", text: "Buscá por nombre o recorré las categorías." },
+  { title: "Armá tu pedido", text: "Sumá productos y ajustá las cantidades." },
+  { title: "Envialo por WhatsApp", text: "Te respondemos con precios, stock y entrega." },
+];
+---
+
+<BaseLayout>
+  <JsonLd slot="head" data={business} />
+  <section class="mx-auto grid max-w-6xl items-center gap-10 px-gutter py-12 md:grid-cols-2 md:px-6 md:py-20">
+    <div>
+      <p class="text-sm font-medium text-leaf">{[...new Set(site.branches.map((branch) => branch.city.split(",")[0]))].join(" y ")}</p>
+      <h1 class="mt-3 font-display text-4xl leading-tight text-deep md:text-6xl">{site.tagline}</h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-muted">{site.description}</p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="#catalogo" class="inline-flex h-12 items-center rounded-full bg-forest px-5 font-medium text-cream">Ver el catálogo</a>
+        <a href={href("/como-comprar/")} class="inline-flex h-12 items-center rounded-full border border-forest px-5 font-medium text-forest">Cómo comprar</a>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <Picture src={almendras} alt="Almendras a granel" formats={["avif", "webp"]} widths={[320, 640]} sizes="(min-width: 768px) 25vw, 50vw" loading="eager" fetchpriority="high" class="row-span-2 h-full min-h-72 w-full rounded-card object-cover" />
+      <Picture src={cacao} alt="Cacao amargo en polvo" formats={["avif", "webp"]} widths={[320, 640]} sizes="(min-width: 768px) 25vw, 50vw" loading="eager" class="h-36 w-full rounded-card object-cover md:h-48" />
+      <Picture src={avena} alt="Avena arrollada" formats={["avif", "webp"]} widths={[320, 640]} sizes="(min-width: 768px) 25vw, 50vw" class="h-36 w-full rounded-card object-cover md:h-48" />
+    </div>
+  </section>
+
+  <section class="border-y border-line bg-paper">
+    <ol class="mx-auto grid max-w-6xl gap-8 px-gutter py-10 md:grid-cols-3 md:px-6">
+      {
+        steps.map((step, i) => (
+          <li>
+            <p class="font-display text-3xl text-leaf">{i + 1}</p>
+            <p class="mt-2 font-medium">{step.title}</p>
+            <p class="mt-1 text-sm leading-relaxed text-muted">{step.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section id="catalogo" class="mx-auto max-w-6xl py-14 md:px-6 md:py-20">
+    <div class="flex items-end justify-between gap-4 px-gutter md:px-0">
+      <h2 class="font-display text-3xl text-deep md:text-5xl">Categorías</h2>
+      <div class="hidden gap-2 md:flex">
+        <button type="button" data-carousel-step="-1" class="inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper text-lg text-forest" aria-label="Categorías anteriores">‹</button>
+        <button type="button" data-carousel-step="1" class="inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper text-lg text-forest" aria-label="Más categorías">›</button>
+      </div>
+    </div>
+    <div data-carousel class="mt-8 touch-pan-y select-none overflow-hidden">
+      <ul class="flex gap-4" aria-label="Categorías de productos">
+        {
+          categories.map((category) => (
+            <li class="w-[46%] shrink-0 sm:w-[31%] md:w-[calc((100%-3rem)/4)]">
+              <a href={categoryUrl(category.slug)} class="group block">
+                <ProductImage src={category.image} alt="" />
+                <p class="mt-3 font-display text-lg leading-snug text-deep group-hover:underline md:text-xl">{category.name}</p>
+                <p class="mt-1 text-sm text-muted">{category.count} productos</p>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl pb-14 md:px-6 md:pb-20">
+    <div class="flex items-end justify-between gap-4 px-gutter md:px-0">
+      <h2 class="font-display text-3xl text-deep md:text-5xl">Destacados</h2>
+      <div class="flex items-center gap-4">
+        <a href={href("/buscar/")} class="text-sm font-medium text-forest underline">Ver todos</a>
+        <div class="hidden gap-2 md:flex">
+          <button type="button" data-carousel-step="-1" class="inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper text-lg text-forest" aria-label="Destacados anteriores">‹</button>
+          <button type="button" data-carousel-step="1" class="inline-flex size-11 items-center justify-center rounded-full border border-line bg-paper text-lg text-forest" aria-label="Más destacados">›</button>
+        </div>
+      </div>
+    </div>
+    <div data-carousel="reverse" class="mt-8 touch-pan-y select-none overflow-hidden">
+      <ul class="flex gap-4" aria-label="Productos destacados">
+        {
+          featured.map((product) => (
+            <li class="flex w-[46%] shrink-0 sm:w-[31%] md:w-[calc((100%-3rem)/4)]">
+              <ProductCard product={product} />
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section id="sucursales" class="bg-deep text-cream">
+    <div class="mx-auto max-w-6xl px-gutter py-14 md:px-6 md:py-20">
+      <h2 class="max-w-xl font-display text-3xl md:text-5xl">Nuestras sucursales</h2>
+      <div class="mt-10 grid gap-6 lg:grid-cols-2">
+        {
+          site.branches.map((branch) => (
+            <article id={branch.id} class="overflow-hidden rounded-card bg-forest">
+              {branch.mapEmbed ? (
+                <iframe
+                  title={`Mapa de la ${branch.name}`}
+                  src={branch.mapEmbed}
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  class="h-64 w-full border-0"
+                />
+              ) : (
+                <div class="flex h-64 items-center justify-center bg-deep/40 text-sm text-foam">Mapa a confirmar</div>
+              )}
+              <div class="p-5 md:p-6">
+                <h3 class="font-display text-3xl">{branch.name}</h3>
+                <address class="mt-2 not-italic text-foam">
+                  {branch.address}, {branch.city}
+                </address>
+                <p class="mt-1 text-sm text-foam">{branch.hours}</p>
+                <div class="mt-5 flex flex-wrap gap-2">
+                  <a
+                    href={`https://wa.me/${branch.whatsapp}?text=${encodeURIComponent("Hola! Quería hacer una consulta.")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex h-11 items-center rounded-full bg-cream px-5 text-sm font-medium text-deep"
+                  >
+                    Escribir por WhatsApp
+                  </a>
+                  {branch.mapsUrl && (
+                    <a href={branch.mapsUrl} target="_blank" rel="noopener noreferrer" class="inline-flex h-11 items-center rounded-full border border-foam px-5 text-sm font-medium">
+                      Cómo llegar
+                    </a>
+                  )}
+                </div>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Carousels drift continuously (one each way) using transforms, so motion is sub-pixel smooth.
+  // They pause while the visitor hovers, touches, drags or focuses one, and resume a moment later.
+  // Items are duplicated so the loop never ends; dragging works with mouse and touch.
+  const SPEED = 30; // px per second
+  const RESUME_AFTER = 2500; // ms
+  const DRAG_THRESHOLD = 6; // px before a press becomes a drag instead of a click
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  document.querySelectorAll<HTMLElement>("[data-carousel]").forEach((viewport) => {
+    const list = viewport.firstElementChild as HTMLElement;
+    // Links and images are natively draggable; that drag cancels ours with pointercancel as soon as the mouse moves.
+    list.querySelectorAll<HTMLElement>("a, img").forEach((element) => (element.draggable = false));
+    const originals = [...list.children] as HTMLElement[];
+    // Clones fill the space after the last item; they stay out of the keyboard order and the accessibility tree.
+    for (const item of originals) {
+      const clone = item.cloneNode(true) as HTMLElement;
+      clone.setAttribute("aria-hidden", "true");
+      clone.querySelectorAll("a, button").forEach((element) => element.setAttribute("tabindex", "-1"));
+      list.append(clone);
+    }
+    const period = () => (list.children[originals.length] as HTMLElement).offsetLeft - originals[0].offsetLeft;
+    const cardStep = () => originals[0].offsetWidth + 16;
+
+    const direction = viewport.dataset.carousel === "reverse" ? -1 : 1;
+    let position = 0;
+    let glide = 0; // distance still to travel from an arrow click, eased out frame by frame
+    let paused = false;
+    let resumeTimer: number | undefined;
+
+    const render = () => {
+      const loop = period();
+      position = ((position % loop) + loop) % loop;
+      list.style.transform = `translate3d(${-position}px, 0, 0)`;
+    };
+    const pause = () => {
+      paused = true;
+      clearTimeout(resumeTimer);
+    };
+    const resumeSoon = () => {
+      clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => (paused = false), RESUME_AFTER);
+    };
+
+    let last = performance.now();
+    const frame = (now: number) => {
+      const elapsed = Math.min(now - last, 100);
+      last = now;
+      if (glide) {
+        const step = Math.abs(glide) < 0.5 ? glide : glide * 0.12;
+        position += step;
+        glide -= step;
+      } else if (!paused && !reduceMotion) {
+        position += (direction * SPEED * elapsed) / 1000;
+      }
+      render();
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+
+    viewport.addEventListener("pointerenter", (event) => event.pointerType === "mouse" && pause());
+    viewport.addEventListener("pointerleave", (event) => event.pointerType === "mouse" && resumeSoon());
+
+    // Drag to move. A press only becomes a drag past the threshold, so taps on links and buttons still work.
+    let pressX: number | undefined;
+    let pressPosition = 0;
+    let dragged = false;
+    viewport.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      pause();
+      glide = 0;
+      pressX = event.clientX;
+      pressPosition = position;
+      dragged = false;
+    });
+    viewport.addEventListener("pointermove", (event) => {
+      if (pressX === undefined) return;
+      const dx = event.clientX - pressX;
+      if (!dragged && Math.abs(dx) > DRAG_THRESHOLD) {
+        dragged = true;
+        viewport.setPointerCapture(event.pointerId);
+      }
+      if (dragged) position = pressPosition - dx;
+    });
+    const release = (event: PointerEvent) => {
+      if (pressX === undefined) return;
+      pressX = undefined;
+      if (event.pointerType !== "mouse" || !viewport.matches(":hover")) resumeSoon();
+    };
+    viewport.addEventListener("pointerup", release);
+    viewport.addEventListener("pointercancel", release);
+    // A drag must not open the link or press the button it started on.
+    viewport.addEventListener(
+      "click",
+      (event) => {
+        if (!dragged) return;
+        event.preventDefault();
+        event.stopPropagation();
+        dragged = false;
+      },
+      true,
+    );
+
+    // Keyboard: bring the focused card into view and hold still while focus is inside.
+    viewport.addEventListener("focusin", (event) => {
+      pause();
+      viewport.scrollLeft = 0;
+      // Only keyboard focus moves the strip; a mouse press also focuses the link and must not make it jump.
+      const target = event.target as Element;
+      const card = target.matches(":focus-visible") ? target.closest("li") : null;
+      if (card) position = card.offsetLeft - originals[0].offsetLeft;
+    });
+    viewport.addEventListener("focusout", resumeSoon);
+
+    viewport
+      .closest("section")
+      ?.querySelectorAll<HTMLButtonElement>("[data-carousel-step]")
+      .forEach((button) =>
+        button.addEventListener("click", () => {
+          pause();
+          glide += Number(button.dataset.carouselStep) * cardStep();
+          resumeSoon();
+        }),
+      );
+  });
+</script>

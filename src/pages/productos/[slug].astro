@@ -1,0 +1,113 @@
+---
+import { href } from "@/lib/url";
+import type { GetStaticPaths } from "astro";
+import { getImage } from "astro:assets";
+import JsonLd from "@/components/JsonLd.astro";
+import ProductCard from "@/components/ProductCard.astro";
+import ProductImage from "@/components/ProductImage.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { categoryUrl, getProducts } from "@/lib/catalog";
+import { amountLimits, formatAmount, packAmount } from "@/lib/amount";
+import { resolveProductImage } from "@/lib/images";
+import { TAG_LABELS, type Product } from "@/lib/products";
+
+export const getStaticPaths = (async () => {
+  const products = await getProducts();
+  return products.map((product) => ({
+    params: { slug: product.slug },
+    props: {
+      product,
+      related: products.filter((item) => item.categorySlug === product.categorySlug && item.slug !== product.slug).slice(0, 4),
+    },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  product: Product;
+  related: Product[];
+}
+
+const { product, related } = Astro.props;
+const amount = packAmount(product.unit);
+const limits = amountLimits(product.unit);
+const resolved = resolveProductImage(product.image);
+const image = typeof resolved === "object" ? (await getImage({ src: resolved, width: 1200, format: "jpg" })).src : resolved;
+const url = new URL(Astro.url.pathname, Astro.site).href;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: product.name,
+  description: product.description,
+  sku: product.id,
+  category: product.category,
+  ...(image && { image: new URL(image, Astro.site).href }),
+  url,
+};
+---
+
+<BaseLayout title={product.name} description={`${product.name} (${product.unit}): ${product.description}`} image={image} type="product">
+  <JsonLd slot="head" data={structuredData} />
+  <section class="mx-auto max-w-6xl px-gutter py-10 md:px-6 md:py-14">
+    <nav aria-label="Ruta" class="text-sm text-muted">
+      <a href={href("/")} class="underline">Inicio</a> / <a href={categoryUrl(product.categorySlug)} class="underline">{product.category}</a> / <span>{product.name}</span>
+    </nav>
+    <div class="mt-6 grid gap-8 md:grid-cols-2 md:gap-12">
+      <ProductImage src={product.image} alt={product.name} eager large />
+      <div>
+        <h1 class="font-display text-4xl leading-tight text-deep md:text-5xl">{product.name}</h1>
+        <p class="mt-2 text-muted">{product.unit}{product.subcategory ? `, ${product.subcategory}` : ""}</p>
+        <p class="mt-6 max-w-prose leading-relaxed">{product.description}</p>
+        {
+          product.tags.length > 0 && (
+            <ul class="mt-6 flex flex-wrap gap-2" aria-label="Características">
+              {product.tags.map((tag) => <li class="rounded-full bg-foam px-3 py-1 text-sm font-medium text-forest">{TAG_LABELS[tag]}</li>)}
+            </ul>
+          )
+        }
+        <div class="mt-8">
+          {
+            product.available ? (
+              <div class="flex flex-wrap items-center gap-3" data-unit={product.unit} data-amount={amount}>
+                <div class="inline-flex h-12 items-center rounded-full border border-line bg-paper" role="group" aria-label={`Cantidad de ${product.name}`}>
+                  <button type="button" data-step="-1" disabled={amount <= limits.min} class="inline-flex size-12 items-center justify-center rounded-full text-lg text-forest disabled:text-line" aria-label="Menos cantidad">
+                    −
+                  </button>
+                  <output data-amount-label class="min-w-[5.5rem] text-center font-medium tabular-nums" aria-live="polite">
+                    {formatAmount(product.unit, amount)}
+                  </output>
+                  <button type="button" data-step="1" class="inline-flex size-12 items-center justify-center rounded-full text-lg text-forest disabled:text-line" aria-label="Más cantidad">
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  data-add-to-cart
+                  data-slug={product.slug}
+                  data-name={product.name}
+                  data-unit={product.unit}
+                  class="inline-flex h-12 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-forest px-8 font-medium text-cream sm:flex-none"
+                  aria-label={`Agregar ${product.name} al pedido`}
+                >
+                  <span data-label>Agregar</span>
+                </button>
+              </div>
+            ) : (
+              <p class="font-medium text-muted">Sin stock por el momento.</p>
+            )
+          }
+        </div>
+      </div>
+    </div>
+
+    {
+      related.length > 0 && (
+        <section class="mt-16" aria-labelledby="relacionados">
+          <h2 id="relacionados" class="font-display text-3xl text-deep">Más en {product.category}</h2>
+          <div class="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
+            {related.map((item) => <ProductCard product={item} />)}
+          </div>
+        </section>
+      )
+    }
+  </section>
+</BaseLayout>
